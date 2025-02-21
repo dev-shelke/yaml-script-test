@@ -1,0 +1,39 @@
+--- 
+- name: Cleanup Disk Space for VG N8N Ubuntu Server
+  hosts: ubuntu_servers
+  become: yes
+  tasks:
+
+    - name: Remove old system logs (older than 7 days)
+      command: find /var/log -type f -mtime +7 -delete
+      register: log_cleanup
+      changed_when: log_cleanup.rc == 0
+
+    - name: Clean APT package cache
+      command: apt-get clean
+      register: apt_cleanup
+      changed_when: apt_cleanup.rc == 0
+
+    - name: Remove orphaned packages
+      command: apt-get autoremove -y
+      register: autoremove
+      changed_when: autoremove.rc == 0
+
+    - name: Remove temporary files from /tmp and /var/tmp (older than 5 days)
+      command: find /tmp /var/tmp -type f -atime +5 -delete
+      register: temp_cleanup
+      changed_when: temp_cleanup.rc == 0
+
+#   - name: Remove unused Docker data (volumes, images, containers)
+#      command: docker system prune -af
+#      register: docker_cleanup
+#      changed_when: docker_cleanup.rc == 0
+
+    - name: Display disk usage after cleanup
+      command: df -h
+      register: disk_usage
+      changed_when: false
+
+    - debug:
+        msg: "{{ disk_usage.stdout_lines }}"
+ 
