@@ -1,6 +1,6 @@
 --- 
 - name: Cleanup Disk Space for VG N8N Ubuntu Server
-  hosts: ubuntu_servers
+  hosts: all
   become: yes
   tasks:
 
