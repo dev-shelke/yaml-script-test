@@ -22,8 +22,9 @@
         msg: "{{ disk_before.stdout_lines }}"
 
     - name: Free up page cache, dentries, and inodes
-      command: sync; echo 3 > /proc/sys/vm/drop_caches
-
+      shell: sync; echo 3 > /proc/sys/vm/drop_caches
+      become: yes 
+      
     - name: Clear swap memory
       command: swapoff -a && swapon -a
       ignore_errors: true
