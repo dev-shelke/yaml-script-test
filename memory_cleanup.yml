@@ -1,0 +1,66 @@
+- name: Memory Cleanup on Linux Servers
+  hosts: all
+  become: true
+  tasks:
+
+    - name: Show memory usage before cleanup
+      command: free -h
+      register: memory_before
+      changed_when: false
+
+    - name: Display memory usage before cleanup
+      debug:
+        msg: "{{ memory_before.stdout_lines }}"
+
+    - name: Show disk usage before cleanup
+      command: df -h
+      register: disk_before
+      changed_when: false
+
+    - name: Display disk usage before cleanup
+      debug:
+        msg: "{{ disk_before.stdout_lines }}"
+
+    - name: Free up page cache, dentries, and inodes
+      command: sync; echo 3 > /proc/sys/vm/drop_caches
+
+    - name: Clear swap memory
+      command: swapoff -a && swapon -a
+      ignore_errors: true
+
+    - name: Remove unnecessary logs older than 7 days
+      find:
+        paths: /var/log
+        patterns: "*.log"
+        age: 7d
+        recurse: yes
+        state: absent
+
+    - name: Clean package cache (APT)
+      apt:
+        autoclean: yes
+        autoremove: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Clean package cache (YUM)
+      yum:
+        autoremove: yes
+      when: ansible_os_family == "RedHat"
+
+    - name: Show memory usage after cleanup
+      command: free -h
+      register: memory_after
+      changed_when: false
+
+    - name: Display memory usage after cleanup
+      debug:
+        msg: "{{ memory_after.stdout_lines }}"
+
+    - name: Show disk usage after cleanup
+      command: df -h
+      register: disk_after
+      changed_when: false
+
+    - name: Display disk usage after cleanup
+      debug:
+        msg: "{{ disk_after.stdout_lines }}"
