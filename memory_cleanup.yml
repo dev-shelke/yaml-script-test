@@ -28,13 +28,13 @@
       command: swapoff -a && swapon -a
       ignore_errors: true
 
-    - name: Remove unnecessary logs older than 7 days
-      find:
-        paths: /var/log
-        patterns: "*.log"
-        age: 7d
-        recurse: yes
-        state: absent
+#    - name: Remove unnecessary logs older than 7 days
+#      find:
+#        paths: /var/log
+#       patterns: "*.log"
+#        age: 7d
+#        recurse: yes
+#       state: absent
 
     - name: Clean package cache (APT)
       apt:
