@@ -1,0 +1,43 @@
+---
+- name: Safe Cleanup on Docker Server
+  hosts: docker_servers
+  become: true
+  tasks:
+
+    - name: Show disk usage before cleanup
+      command: df -h
+      register: disk_before
+      changed_when: false
+
+    - name: Display disk usage before cleanup
+      debug:
+        msg: "{{ disk_before.stdout_lines }}"
+
+#    - name: Remove exited containers
+#     command: docker container prune -f
+#     register: container_cleanup
+#      changed_when: "'Total reclaimed space' in container_cleanup.stdout"
+
+    - name: Remove dangling images (unused images without tags)
+      command: docker image prune -f
+      register: image_cleanup
+      changed_when: "'Total reclaimed space' in image_cleanup.stdout"
+
+    - name: Remove unused volumes (safe cleanup)
+      command: docker volume prune -f
+      register: volume_cleanup
+      changed_when: "'Total reclaimed space' in volume_cleanup.stdout"
+
+    - name: Remove unused networks (safe cleanup)
+      command: docker network prune -f
+      register: network_cleanup
+      changed_when: "'Total reclaimed space' in network_cleanup.stdout"
+
+    - name: Show disk usage after cleanup
+      command: df -h
+      register: disk_after
+      changed_when: false
+
+    - name: Display disk usage after cleanup
+      debug:
+        msg: "{{ disk_after.stdout_lines }}"
