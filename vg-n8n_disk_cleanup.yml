@@ -4,6 +4,14 @@
   become: yes
   tasks:
 
+    - name: Display disk usage before cleanup
+      command: df -h
+      register: disk_usage_before
+      changed_when: false
+
+    - debug:
+        msg: "Disk usage before cleanup:\n{{ disk_usage_before.stdout_lines }}"
+
     - name: Remove old system logs (older than 7 days)
       command: find /var/log -type f -mtime +7 -delete
       register: log_cleanup
@@ -24,16 +32,15 @@
       register: temp_cleanup
       changed_when: temp_cleanup.rc == 0
 
-#   - name: Remove unused Docker data (volumes, images, containers)
-#      command: docker system prune -af
-#      register: docker_cleanup
-#      changed_when: docker_cleanup.rc == 0
+    # - name: Remove unused Docker data (volumes, images, containers)
+    #   command: docker system prune -af
+    #   register: docker_cleanup
+    #   changed_when: docker_cleanup.rc == 0
 
     - name: Display disk usage after cleanup
       command: df -h
-      register: disk_usage
+      register: disk_usage_after
       changed_when: false
 
     - debug:
-        msg: "{{ disk_usage.stdout_lines }}"
- 
+        msg: "Disk usage after cleanup:\n{{ disk_usage_after.stdout_lines }}"
