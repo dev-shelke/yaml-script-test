@@ -1,0 +1,31 @@
+---
+- name: Create and Enable Swap Memory
+  hosts: all
+  become: yes  # Run commands with sudo
+  tasks:
+
+    - name: Allocate 2GB Swap File
+      command: fallocate -l 2G /swapfile2
+      args:
+        creates: /swapfile2  # Prevents re-creating if already exists
+
+    - name: Set Permissions for Swap File
+      file:
+        path: /swapfile2
+        mode: '0600'
+
+    - name: Format Swap File
+      command: mkswap /swapfile2
+      register: swap_result
+      changed_when: "'setting up swapspace' in swap_result.stdout"
+
+    - name: Enable Swap File
+      command: swapon /swapfile2
+      register: swapon_result
+      changed_when: "'swapon: /swapfile2' in swapon_result.stdout"
+
+    - name: Ensure Swap Persists After Reboot
+      lineinfile:
+        path: /etc/fstab
+        line: "/swapfile2 none swap sw 0 0"
+        state: present
