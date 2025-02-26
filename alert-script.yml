@@ -33,9 +33,14 @@
       register: system_hostname
       changed_when: false
 
-    - name: Get IP Address
+    - name: Get Private IP Address
       shell: hostname -I | awk '{print $1}'
       register: system_ip
+      changed_when: false
+
+    - name: Get Public IP Address
+      shell: curl -s ifconfig.me
+      register: public_ip
       changed_when: false
 
     - name: Get OS Information
@@ -43,17 +48,17 @@
       register: os_info
       changed_when: false
 
-    - name: Get AWS Region (if applicable)
-      shell: curl -s http://13.212.6.179/latest/meta-data/placement/region
-      register: aws_region
-      changed_when: false
-      ignore_errors: yes
+ #   - name: Get AWS Region (if applicable)
+ #     shell: curl -s http://13.212.6.179/latest/meta-data/placement/region
+ #     register: aws_region
+#      changed_when: false
+ #     ignore_errors: yes
 
-    - name: Get Azure Region (if applicable)
-      shell: 'curl -s -H "Metadata:true" "http://13.212.6.179/metadata/instance/compute/location?api-version=2021-01-01&format=text"'
-      register: azure_region
-      changed_when: false
-      ignore_errors: yes
+  #  - name: Get Azure Region (if applicable)
+  #    shell: 'curl -s -H "Metadata:true" "http://13.212.6.179/metadata/instance/compute/location?api-version=2021-01-01&format=text"'
+ #     register: azure_region
+ #     changed_when: false
+ #     ignore_errors: yes
 
     - name: Determine Final Region
       set_fact:
@@ -63,7 +68,8 @@
       debug:
         msg: |
           Hostname: {{ system_hostname.stdout }}
-          IP Address: {{ system_ip.stdout }}
+          Private IP Address: {{ system_ip.stdout }}
+          Public IP Address: {{ public_ip.stdout }}
           Memory Usage: {{ memory_usage.stdout }}%
           Disk Usage: {{ disk_usage.stdout }}%
           CPU Load: {{ cpu_usage.stdout }}%
@@ -79,7 +85,7 @@
           Content-Type: "application/json"
         body: >
           {
-            "content": ":warning: **Memory Alert!**\n**Hostname:** `{{ system_hostname.stdout }}`\n🔹 **IP Address:** {{ system_ip.stdout }}\n🔹 **Region:** {{ server_region }}\n🔹 **Memory Usage:** {{ memory_usage.stdout }}%\n🔹 **CPU Load:** {{ cpu_usage.stdout }}%\n🔹 **Disk Usage:** {{ disk_usage.stdout }}%\n🔹 **Uptime:** {{ system_uptime.stdout }}\n🔹 **OS:** {{ os_info.stdout }}"
+            "content": ":warning: **Memory Alert!**\n**Hostname:** `{{ system_hostname.stdout }}`\n🔹 **Private IP:** {{ system_ip.stdout }}\n🔹 **Public IP:** {{ public_ip.stdout }}\n🔹 **Region:** {{ server_region }}\n🔹 **Memory Usage:** {{ memory_usage.stdout }}%\n🔹 **CPU Load:** {{ cpu_usage.stdout }}%\n🔹 **Disk Usage:** {{ disk_usage.stdout }}%\n🔹 **Uptime:** {{ system_uptime.stdout }}\n🔹 **OS:** {{ os_info.stdout }}"
           }
         body_format: json
         status_code: [200]
@@ -93,7 +99,7 @@
           Content-Type: "application/json"
         body: >
           {
-            "content": ":warning: **Disk Alert!**\n**Hostname:** `{{ system_hostname.stdout }}`\n🔹 **IP Address:** {{ system_ip.stdout }}\n🔹 **Region:** {{ server_region }}\n🔹 **Disk Usage:** {{ disk_usage.stdout }}%\n🔹 **Memory Usage:** {{ memory_usage.stdout }}%\n🔹 **CPU Load:** {{ cpu_usage.stdout }}%\n🔹 **Uptime:** {{ system_uptime.stdout }}\n🔹 **OS:** {{ os_info.stdout }}"
+            "content": ":warning: **Disk Alert!**\n**Hostname:** `{{ system_hostname.stdout }}`\n🔹 **Private IP:** {{ system_ip.stdout }}\n🔹 **Public IP:** {{ public_ip.stdout }}\n🔹 **Region:** {{ server_region }}\n🔹 **Disk Usage:** {{ disk_usage.stdout }}%\n🔹 **Memory Usage:** {{ memory_usage.stdout }}%\n🔹 **CPU Load:** {{ cpu_usage.stdout }}%\n🔹 **Uptime:** {{ system_uptime.stdout }}\n🔹 **OS:** {{ os_info.stdout }}"
           }
         body_format: json
         status_code: [200]
