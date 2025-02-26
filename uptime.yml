@@ -6,7 +6,10 @@
     - name: Ping the servers
       ping:
       register: ping_result
-      ignore_errors: yes
+      ignore_unreachable: yes
+
+    - name: Clear host errors to ensure alerts run for unreachable hosts
+      meta: clear_host_errors
 
     - name: Send alert if a server is unreachable
       uri:
@@ -20,4 +23,4 @@
           }
         body_format: json
         status_code: [200]
-      when: ping_result.failed is defined and ping_result.failed
+      when: ping_result.unreachable is defined
