@@ -48,11 +48,11 @@
       register: os_info
       changed_when: false
 
-   - name: Get AWS Region (if applicable)
-     shell: curl -s http://13.212.6.179/latest/meta-data/placement/region
-     register: aws_region
-     changed_when: false
-     ignore_errors: yes
+    - name: Get AWS Region (if applicable)
+      shell: curl -s http://13.212.6.179/latest/meta-data/placement/region
+      register: aws_region
+      changed_when: false
+      ignore_errors: yes
 
   #  - name: Get Azure Region (if applicable)
   #    shell: 'curl -s -H "Metadata:true" "http://13.212.6.179/metadata/instance/compute/location?api-version=2021-01-01&format=text"'
