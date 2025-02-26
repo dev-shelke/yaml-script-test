@@ -4,23 +4,21 @@
   gather_facts: no
   tasks:
     - name: Ping the servers
-      ping:
-      register: ping_result
-      ignore_unreachable: yes
+      block:
+        - name: Check if server is reachable
+          ping:
+          register: ping_result
 
-    - name: Clear host errors to ensure alerts run for unreachable hosts
-      meta: clear_host_errors
-
-    - name: Send alert if a server is unreachable
-      uri:
-        url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL"
-        method: POST
-        headers:
-          Content-Type: "application/json"
-        body: >
-          {
-            "content": ":x: **Server Unreachable!**\n🔹 **Hostname:** `{{ inventory_hostname }}`\n🔹 **IP:** {{ ansible_host }}"
-          }
-        body_format: json
-        status_code: [200]
-      when: ping_result.unreachable is defined
+      rescue:
+        - name: Send alert if a server is unreachable
+          uri:
+            url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL"
+            method: POST
+            headers:
+              Content-Type: "application/json"
+            body: >
+              {
+                "content": ":x: **Server Unreachable!**\n🔹 **Hostname:** `{{ inventory_hostname }}`\n🔹 **IP:** {{ ansible_host }}"
+              }
+            body_format: json
+            status_code: [200]
