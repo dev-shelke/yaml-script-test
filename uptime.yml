@@ -1,0 +1,80 @@
+---
+- name: Ping servers and send alert on Teams
+  hosts: all
+  gather_facts: no
+
+  vars:
+    servers:
+      - IP: "20.84.81.10"
+        Name: "API"
+        Description: "Unreachable server"
+        Cloud: "AWS (Samsurin)"
+        Region: "Oregon"
+      - IP: "13.212.6.179"
+        Name: "WebApp"
+        Description: " reachable server"
+        Cloud: "AWS (Samsurin)"
+        Region: "Oregon"
+      # Add more servers as needed
+
+  tasks:
+    - name: Ping servers
+      shell: "ping -c 4 {{ item.IP }}"
+      register: ping_result
+      ignore_errors: yes
+      with_items: "{{ servers }}"
+
+    - name: Print message based on ping reachability for each IP
+      debug:
+        msg: "Ping to {{ item.item.Name }} ({{ item.item.IP }}) {{ 'succeeded' if item.rc == 0 else 'failed' }}"
+      with_items: "{{ ping_result.results }}"
+
+    - name: Send alert on Microsoft Teams for unreachable servers
+      uri:
+        url: "https://discord.com/api/webhooks/1341011025926819861/iwbomQaEk5e6Y8MBRx47ln0hFPd-TPFBj3TjIwZBJfSSpfbSqAU0nM46Z023GgJamgQy"
+        method: POST
+        body_format: json
+        body: >-
+          {
+            "type": "message",
+            "attachments": [
+              {
+                "contentType": "application/vnd.microsoft.card.adaptive",
+                "content": {
+                  "type": "AdaptiveCard",
+                  "body": [
+                    {
+                      "type": "TextBlock",
+                      "text": "{{ item.item.Name }} server ({{ item.item.IP }}) is not reachable!",
+                      "weight": "bolder",
+                      "color": "attention"
+                    },
+                    {
+                      "type": "TextBlock",
+                      "text": "Description: {{ item.item.Description }}",
+                      "wrap": true
+                    },
+                    {
+                      "type": "TextBlock",
+                      "text": "Cloud: {{ item.item.Cloud }}",
+                      "wrap": true
+                    },
+                    {
+                      "type": "TextBlock",
+                      "text": "Region: {{ item.item.Region }}",
+                      "wrap": true
+                    },
+                    {
+                      "type": "TextBlock",
+                      "text": "[Reference URL](https://discord.com/api/webhooks/1341011025926819861/iwbomQaEk5e6Y8MBRx47ln0hFPd-TPFBj3TjIwZBJfSSpfbSqAU0nM46Z023GgJamgQy)",
+                      "wrap": true
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        status_code: 200
+        validate_certs: no
+      with_items: "{{ ping_result.results }}"
+      when: item.rc != 0
