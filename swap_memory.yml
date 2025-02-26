@@ -4,28 +4,51 @@
   become: yes  # Run commands with sudo
   tasks:
 
+    - name: Check if Swap File Already Exists
+      stat:
+        path: /swapfile2
+      register: swap_stat
+
+    - name: Alert if Swap File Already Exists
+      debug:
+        msg: "Swap file /swapfile2 already exists! Skipping swap creation."
+      when: swap_stat.stat.exists
+
     - name: Allocate 2GB Swap File
       command: fallocate -l 2G /swapfile2
       args:
         creates: /swapfile2  # Prevents re-creating if already exists
+      when: not swap_stat.stat.exists
 
     - name: Set Permissions for Swap File
       file:
         path: /swapfile2
         mode: '0600'
+      when: not swap_stat.stat.exists
 
     - name: Format Swap File
       command: mkswap /swapfile2
       register: swap_result
       changed_when: "'setting up swapspace' in swap_result.stdout"
+      when: not swap_stat.stat.exists
 
     - name: Enable Swap File
       command: swapon /swapfile2
       register: swapon_result
       changed_when: "'swapon: /swapfile2' in swapon_result.stdout"
+      when: not swap_stat.stat.exists
 
     - name: Ensure Swap Persists After Reboot
       lineinfile:
         path: /etc/fstab
         line: "/swapfile2 none swap sw 0 0"
         state: present
+      when: not swap_stat.stat.exists
+
+    - name: Display Memory Allocation
+      command: free -h
+      register: memory_info
+
+    - name: Show Memory Allocation
+      debug:
+        msg: "{{ memory_info.stdout }}"
