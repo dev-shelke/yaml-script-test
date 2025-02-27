@@ -1,23 +1,74 @@
 ---
 - name: Ping servers and send alerts if down
-  hosts: all
+  hosts: localhost
   gather_facts: no
-  tasks:
-    - name: Check if server is reachable
-      ping:
-      register: ping_result
-      ignore_unreachable: yes
 
-    - name: Send alert if a server is unreachable
+  vars:
+    discord_webhook: "https://discord.com/api/webhooks/1341011025926819861/iwbomQaEk5e6Y8MBRx47ln0hFPd-TPFBj3TjIwZBJfSSpfbSqAU0nM46Z023GgJamgQy"
+    servers:
+      - IP: "13.212.6.179"
+        Name: "demo-server"
+        Description: "server for running scripts"
+        Cloud: "AWS"
+        Region: "Oregon"
+
+      - IP: "20.84.81.10"
+        Name: "Database Server"
+        Description: "unreachable server"
+        Cloud: "Azure"
+        Region: "Virginia"
+
+  tasks:
+    - name: Ping servers
+      shell: "ping -c 4 {{ item.IP }}"
+      register: ping_result
+      ignore_errors: yes
+      with_items: "{{ servers }}"
+
+    - name: Print message based on ping reachability for each IP
+      debug:
+        msg: "Ping to {{ item.item.Name }} ({{ item.item.IP }}) {{ 'succeeded' if item.rc == 0 else 'failed' }}"
+      with_items: "{{ ping_result.results }}"
+
+    - name: Send alert on Discord for unreachable servers
       uri:
-        url: "https://discord.com/api/webhooks/1331601771382181971/jFScCvjdmEBWQyox9YSC86NsiWfMVt1DPJwhINcLXW1aNRnd2KyB7FlCOfBC8_uUAkb6"
+        url: "{{ discord_webhook }}"
         method: POST
-        headers:
-          Content-Type: "application/json"
-        body: >
-          {
-            "content": ":x: **Server Unreachable!**\n🔹 **Hostname:** `{{ inventory_hostname }}`\n🔹 **IP:** {{ ansible_host }}"
-          }
         body_format: json
-        status_code: [200]
-      when: ping_result.unreachable is defined and ping_result.unreachable
+        body: >-
+          {
+            "username": "Server Monitor",
+            "avatar_url": "https://cdn-icons-png.flaticon.com/512/2098/2098403.png",
+            "embeds": [
+              {
+                "title": ":rotating_light: Server Down Alert!",
+                "description": ":red_circle: **{{ item.item.Name }} ({{ item.item.IP }}) is NOT reachable!**",
+                "color": 15158332,
+                "fields": [
+                  {
+                    "name": "🌍 Cloud",
+                    "value": "{{ item.item.Cloud }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "📍 Region",
+                    "value": "{{ item.item.Region }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "📄 Description",
+                    "value": "{{ item.item.Description }}",
+                    "inline": false
+                  },
+                  {
+                    "name": "🔗 Reference URL",
+                    "value": "[Check Dashboard](https://your-dashboard-url)"
+                  }
+                ]
+              }
+            ]
+          }
+        status_code: 204
+        validate_certs: no
+      with_items: "{{ ping_result.results }}"
+      when: item.rc is defined and item.rc != 0
