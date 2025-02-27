@@ -1,0 +1,56 @@
+---
+- name: Take PostgreSQL backup from Docker server and push to GitHub
+  hosts: vg_superset
+  become: true
+  gather_facts: yes
+
+  tasks:
+    - name: Get current date and time
+      set_fact:
+        current_date: "{{ ansible_date_time.iso8601 | regex_replace('T.*', '') }}"
+
+    - name: Run Docker command to take backup
+      shell:
+        cmd: docker exec -t superset_db pg_dump superset -U superset | xz > "/tmp/backup_{{ current_date }}.sql.xz"
+      register: backup_result
+      ignore_errors: yes
+
+    - name: Check if backup was successful
+      fail:
+        msg: "Backup command failed. {{ backup_result }}"
+      when: backup_result.rc != 0
+
+    - name: Copy backup file to Ansible server
+      fetch:
+        src: "/tmp/backup_{{ current_date }}.sql.xz"
+        dest: "/home/ansiuser/Backup/vg_superset_backup/backup_{{ current_date }}.sql.xz"
+        flat: yes
+
+    - name: Delete backup file from Docker server
+      file:
+        path: "/tmp/backup_{{ current_date }}.sql.xz"
+        state: absent
+
+- name: Push backup file to GitHub
+  hosts: localhost
+  gather_facts: yes
+  tasks:
+
+    - name: Get current date and time
+      set_fact:
+        current_date: "{{ ansible_date_time.iso8601 | regex_replace('T.*', '') }}"
+
+    - name: Add backup file to Git
+      command: sudo git add .
+      args:
+        chdir: /home/ansiuser/Backup/vg_superset_backup
+
+    - name: Commit backup file
+      command: git commit -m "Add PostgreSQL backup"
+      args:
+        chdir: /home/ansiuser/Backup/vg_superset_backup
+
+    - name: Push backup file to GitHub
+      command: git push origin vg_superset
+      args:
+        chdir: /home/ansiuser/Backup/vg_superset_backup
