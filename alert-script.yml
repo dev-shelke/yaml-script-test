@@ -1,106 +1,74 @@
 ---
-- name: Monitor System Information and Send Alerts
-  hosts: all
-  become: yes
+- name: Ping servers and send alerts if down
+  hosts: localhost
+  gather_facts: no
+
   vars:
-    memory_threshold: 80  # Alert if memory usage exceeds 80%
-    disk_threshold: 80    # Alert if disk usage exceeds 80%
-    webhook_url: "https://discord.com/api/webhooks/1341011025926819861/iwbomQaEk5e6Y8MBRx47ln0hFPd-TPFBj3TjIwZBJfSSpfbSqAU0nM46Z023GgJamgQy"
+    discord_webhook: "https://discord.com/api/webhooks/1341011025926819861/iwbomQaEk5e6Y8MBRx47ln0hFPd-TPFBj3TjIwZBJfSSpfbSqAU0nM46Z023GgJamgQy"
+    servers:
+      - IP: "13.212.6.179"
+        Name: "demo-server"
+        Description: "server for running scripts"
+        Cloud: "AWS"
+        Region: "Oregon"
+
+      - IP: "20.84.81.10"
+        Name: "Database Server"
+        Description: "unreachable server"
+        Cloud: "Azure"
+        Region: "Virginia"
 
   tasks:
-    - name: Check Memory Usage
-      shell: free | awk '/Mem/{printf("%.0f", $3/$2*100)}'
-      register: memory_usage
-      changed_when: false
-
-    - name: Check Disk Usage
-      shell: df -h / | awk 'NR==2 {print $5}' | grep -o '[0-9]*'
-      register: disk_usage
-      changed_when: false
-
-    - name: Get CPU Load
-      shell: top -bn1 | grep "Cpu(s)" | awk '{print 100 - $8}'
-      register: cpu_usage
-      changed_when: false
-
-    - name: Get System Uptime
-      shell: uptime -p
-      register: system_uptime
-      changed_when: false
-
-    - name: Get Hostname
-      shell: hostname
-      register: system_hostname
-      changed_when: false
-
-    - name: Get Private IP Address
-      shell: hostname -I | awk '{print $1}'
-      register: system_ip
-      changed_when: false
-
-    - name: Get Public IP Address
-      shell: curl -s ifconfig.me
-      register: public_ip
-      changed_when: false
-
-    - name: Get OS Information
-      shell: "hostnamectl | grep 'Operating System' | cut -d ' ' -f3-"
-      register: os_info
-      changed_when: false
-
-    - name: Get AWS Region (if applicable)
-      shell: curl -s http://13.212.6.179/latest/meta-data/placement/region
-      register: aws_region
-      changed_when: false
+    - name: Ping servers
+      shell: "ping -c 4 {{ item.IP }}"
+      register: ping_result
       ignore_errors: yes
+      with_items: "{{ servers }}"
 
-  #  - name: Get Azure Region (if applicable)
-  #    shell: 'curl -s -H "Metadata:true" "http://13.212.6.179/metadata/instance/compute/location?api-version=2021-01-01&format=text"'
- #     register: azure_region
- #     changed_when: false
- #     ignore_errors: yes
-
-    - name: Determine Final Region
-      set_fact:
-        server_region: "{{ aws_region.stdout | default(azure_region.stdout) | default('Unknown') }}"
-
-    - name: Debug - Display System Metrics
+    - name: Print message based on ping reachability for each IP
       debug:
-        msg: |
-          Hostname: {{ system_hostname.stdout }}
-          Private IP Address: {{ system_ip.stdout }}
-          Public IP Address: {{ public_ip.stdout }}
-          Memory Usage: {{ memory_usage.stdout }}%
-          Disk Usage: {{ disk_usage.stdout }}%
-          CPU Load: {{ cpu_usage.stdout }}%
-          Uptime: {{ system_uptime.stdout }}
-          OS: {{ os_info.stdout }}
-          Region: {{ server_region }}
+        msg: "Ping to {{ item.item.Name }} ({{ item.item.IP }}) {{ 'succeeded' if item.rc == 0 else 'failed' }}"
+      with_items: "{{ ping_result.results }}"
 
-    - name: Send Discord Alert for High Memory Usage
+    - name: Send alert on Discord for unreachable servers
       uri:
-        url: "{{ webhook_url }}"
+        url: "{{ discord_webhook }}"
         method: POST
-        headers:
-          Content-Type: "application/json"
-        body: >
-          {
-            "content": ":warning: **Memory Alert!**\n**Hostname:** `{{ system_hostname.stdout }}`\n🔹 **Private IP:** {{ system_ip.stdout }}\n🔹 **Public IP:** {{ public_ip.stdout }}\n🔹 **Region:** {{ server_region }}\n🔹 **Memory Usage:** {{ memory_usage.stdout }}%\n🔹 **CPU Load:** {{ cpu_usage.stdout }}%\n🔹 **Disk Usage:** {{ disk_usage.stdout }}%\n🔹 **Uptime:** {{ system_uptime.stdout }}\n🔹 **OS:** {{ os_info.stdout }}"
-          }
         body_format: json
-        status_code: [200]
-      when: memory_usage.stdout|int > memory_threshold and memory_usage.stdout is not none and memory_usage.stdout != ""
-
-    - name: Send Discord Alert for High Disk Usage
-      uri:
-        url: "{{ webhook_url }}"
-        method: POST
-        headers:
-          Content-Type: "application/json"
-        body: >
+        body: >-
           {
-            "content": ":warning: **Disk Alert!**\n**Hostname:** `{{ system_hostname.stdout }}`\n🔹 **Private IP:** {{ system_ip.stdout }}\n🔹 **Public IP:** {{ public_ip.stdout }}\n🔹 **Region:** {{ server_region }}\n🔹 **Disk Usage:** {{ disk_usage.stdout }}%\n🔹 **Memory Usage:** {{ memory_usage.stdout }}%\n🔹 **CPU Load:** {{ cpu_usage.stdout }}%\n🔹 **Uptime:** {{ system_uptime.stdout }}\n🔹 **OS:** {{ os_info.stdout }}"
+            "username": "Server Monitor",
+            "avatar_url": "https://cdn-icons-png.flaticon.com/512/2098/2098403.png",
+            "embeds": [
+              {
+                "title": ":rotating_light: Server Down Alert!",
+                "description": ":red_circle: **{{ item.item.Name }} ({{ item.item.IP }}) is NOT reachable!**",
+                "color": 15158332,
+                "fields": [
+                  {
+                    "name": "🌍 Cloud",
+                    "value": "{{ item.item.Cloud }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "📍 Region",
+                    "value": "{{ item.item.Region }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "📄 Description",
+                    "value": "{{ item.item.Description }}",
+                    "inline": false
+                  },
+                  {
+                    "name": "🔗 Reference URL",
+                    "value": "[Check Dashboard](https://your-dashboard-url)"
+                  }
+                ]
+              }
+            ]
           }
-        body_format: json
-        status_code: [200]
-      when: disk_usage.stdout|int > disk_threshold and disk_usage.stdout is not none and disk_usage.stdout != ""
+        status_code: 204
+        validate_certs: no
+      with_items: "{{ ping_result.results }}"
+      when: item.rc is defined and item.rc != 0
