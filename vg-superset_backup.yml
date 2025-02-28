@@ -39,8 +39,8 @@
   gather_facts: yes
   tasks:
   
-    - name: Ensure backup directory exists on vg_ansible
-      file:
+   - name: Ensure backup directory exists on vg_ansible
+     file:
         path: "/home/ansiuser/Backup/vg_superset_backup"
         state: directory
         mode: '0755'
