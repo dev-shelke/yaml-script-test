@@ -32,7 +32,7 @@
         state: absent
 
 - name: Push backup file to GitHub
-  hosts: localhost
+  hosts: vg_ansible
   gather_facts: yes
   tasks:
 
