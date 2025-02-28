@@ -38,9 +38,8 @@
   hosts: vg_ansible
   gather_facts: yes
   tasks:
-  
-   - name: Ensure backup directory exists on vg_ansible
-     file:
+    - name: Ensure backup directory exists on vg_ansible
+      file:
         path: "/home/ansiuser/Backup/vg_superset_backup"
         state: directory
         mode: '0755'
@@ -50,22 +49,25 @@
         src: "/home/ansiuser/Backup/vg_superset_backup/backup_{{ current_date }}.sql.xz"
         dest: "/home/ansiuser/Backup/vg_superset_backup/backup_{{ current_date }}.sql.xz"
         mode: '0644'
- 
+
     - name: Get current date and time
       set_fact:
         current_date: "{{ ansible_date_time.iso8601 | regex_replace('T.*', '') }}"
 
     - name: Add backup file to Git
-      command: sudo git add .
+      command:
+        cmd: git add .
       args:
         chdir: /home/ansiuser/Backup/vg_superset_backup
 
     - name: Commit backup file
-      command: git commit -m "Add PostgreSQL backup"
+      command:
+        cmd: git commit -m "Add PostgreSQL backup"
       args:
         chdir: /home/ansiuser/Backup/vg_superset_backup
 
     - name: Push backup file to GitHub
-      command: git push origin vg_superset
+      command:
+        cmd: git push origin vg_superset
       args:
         chdir: /home/ansiuser/Backup/vg_superset_backup
