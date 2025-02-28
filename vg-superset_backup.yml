@@ -21,10 +21,12 @@
       when: backup_result.rc != 0
 
     - name: Copy backup file to Ansible server
-      fetch:
+      copy:
         src: "/tmp/backup_{{ current_date }}.sql.xz"
         dest: "/home/ansiuser/Backup/vg_superset_backup/backup_{{ current_date }}.sql.xz"
-        flat: yes
+        owner: ansiuser
+        group: ansiuser
+        mode: '0644'
 
     - name: Delete backup file from Docker server
       file:
