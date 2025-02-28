@@ -5,12 +5,13 @@
   gather_facts: yes
 
   tasks:
-    - name: Get current date
+    - name: Get current date and time
       set_fact:
         current_date: "{{ ansible_date_time.iso8601 | regex_replace('T.*', '') }}"
 
     - name: Run Docker command to take backup
-      shell: docker exec -t superset_db pg_dump superset -U superset | xz > "/tmp/backup_{{ current_date }}.sql.xz"
+      shell:
+        cmd: docker exec -t superset_db pg_dump superset -U superset | xz > "/tmp/backup_{{ current_date }}.sql.xz"
       register: backup_result
       ignore_errors: yes
 
@@ -20,10 +21,13 @@
       when: backup_result.rc != 0
 
     - name: Copy backup file to Ansible server
-      fetch:
+      copy:
         src: "/tmp/backup_{{ current_date }}.sql.xz"
         dest: "/home/ansiuser/Backup/vg_superset_backup/backup_{{ current_date }}.sql.xz"
-        flat: yes
+        owner: ansiuser
+        group: ansiuser
+        mode: '0644'
+        remote_src: yes
 
     - name: Delete backup file from Docker server
       file:
@@ -34,7 +38,7 @@
   hosts: vg_ansible
   gather_facts: yes
   tasks:
-    - name: Ensure backup directory exists
+    - name: Ensure backup directory exists on vg_ansible
       file:
         path: "/home/ansiuser/Backup/vg_superset_backup"
         state: directory
@@ -46,19 +50,24 @@
         dest: "/home/ansiuser/Backup/vg_superset_backup/backup_{{ current_date }}.sql.xz"
         mode: '0644'
 
+    - name: Get current date and time
+      set_fact:
+        current_date: "{{ ansible_date_time.iso8601 | regex_replace('T.*', '') }}"
+
     - name: Add backup file to Git
-      command: git add .
+      command:
+        cmd: git add .
       args:
         chdir: /home/ansiuser/Backup/vg_superset_backup
 
     - name: Commit backup file
-      command: git commit -m "Add PostgreSQL backup"
+      command:
+        cmd: git commit -m "Add PostgreSQL backup"
       args:
         chdir: /home/ansiuser/Backup/vg_superset_backup
-      ignore_errors: yes
 
     - name: Push backup file to GitHub
-      command: git push origin vg_superset
+      command:
+        cmd: git push origin vg_superset
       args:
         chdir: /home/ansiuser/Backup/vg_superset_backup
-      ignore_errors: yes
