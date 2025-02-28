@@ -38,7 +38,19 @@
   hosts: vg_ansible
   gather_facts: yes
   tasks:
+  
+    - name: Ensure backup directory exists on vg_ansible
+      file:
+        path: "/home/ansiuser/Backup/vg_superset_backup"
+        state: directory
+        mode: '0755'
 
+    - name: Copy backup file to vg_ansible
+      copy:
+        src: "/home/ansiuser/Backup/vg_superset_backup/backup_{{ current_date }}.sql.xz"
+        dest: "/home/ansiuser/Backup/vg_superset_backup/backup_{{ current_date }}.sql.xz"
+        mode: '0644'
+ 
     - name: Get current date and time
       set_fact:
         current_date: "{{ ansible_date_time.iso8601 | regex_replace('T.*', '') }}"
