@@ -1,0 +1,20 @@
+---
+- name: Test directory creation and file writing
+  hosts: vg_superset
+  become: true
+  tasks:
+    - name: Ensure the directory exists
+      file:
+        path: "/home/ansiuser/Backup/vg_superset_backup"
+        state: directory
+        owner: ansiuser
+        group: ansiuser
+        mode: '0755'
+
+    - name: Create a sample text file
+      copy:
+        content: "This is a test file created by Ansible."
+        dest: "/home/ansiuser/Backup/vg_superset_backup/test_file.txt"
+        owner: ansiuser
+        group: ansiuser
+        mode: '0644'
