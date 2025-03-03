@@ -43,15 +43,32 @@
       set_fact:
         current_date: "{{ ansible_date_time.iso8601 | regex_replace('T.*', '') }}"
 
+    - name: Verify that the backup file exists
+      stat:
+        path: "/home/ansiuser/Backup/vg_superset_backup/backup_{{ current_date }}.sql.xz"
+      register: backup_file
+
+    - name: Fail if backup file is missing
+      fail:
+        msg: "Backup file not found! The commit process will be skipped."
+      when: not backup_file.stat.exists
+
     - name: Add backup file to Git
-      command: sudo git add .
+      command: git add .
       args:
         chdir: /home/ansiuser/Backup/vg_superset_backup
 
-    - name: Commit backup file
+    - name: Check if there are changes to commit
+      command: git status --porcelain
+      args:
+        chdir: /home/ansiuser/Backup/vg_superset_backup
+      register: git_status
+
+    - name: Commit backup file (only if there are changes)
       command: git commit -m "Add PostgreSQL backup"
       args:
         chdir: /home/ansiuser/Backup/vg_superset_backup
+      when: git_status.stdout != ""
 
     - name: Push backup file to GitHub
       command: git push origin vg_superset
