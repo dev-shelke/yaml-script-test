@@ -1,7 +1,7 @@
 ---
 - name: Take PostgreSQL backup from Docker server and push to GitHub
   hosts: vg_superset
-  become: true
+# become: true
   gather_facts: yes
 
   tasks:
@@ -27,7 +27,6 @@
         owner: ansiuser
         group: ansiuser
         mode: '0644'
-        remote_src: yes
 
     - name: Delete backup file from Docker server
       file:
@@ -38,23 +37,10 @@
   hosts: vg_ansible
   gather_facts: yes
   tasks:
-  
-   - name: Get current date and time
-     set_fact:
-       current_date: "{{ ansible_date_time.iso8601 | regex_replace('T.*', '') }}"
-    
-    - name: Ensure backup directory exists on vg_ansible
-      file:
-        path: "/home/ansiuser/Backup/vg_superset_backup"
-        state: directory
-        mode: '0755'
 
-    - name: Copy backup file to vg_ansible
-      copy:
-        src: "/home/ansiuser/Backup/vg_superset_backup/backup_{{ current_date }}.sql.xz"
-        dest: "/home/ansiuser/Backup/vg_superset_backup/backup_{{ current_date }}.sql.xz"
-        mode: '0644'
- 
+    - name: Get current date and time
+      set_fact:
+        current_date: "{{ ansible_date_time.iso8601 | regex_replace('T.*', '') }}"
 
     - name: Add backup file to Git
       command: sudo git add .
