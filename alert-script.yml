@@ -1,32 +1,106 @@
-- name: Check if server is reachable
+---
+- name: Monitor System Information and Send Alerts
   hosts: all
-  gather_facts: no
+  become: yes
+  vars:
+    memory_threshold: 80  # Alert if memory usage exceeds 80%
+    disk_threshold: 80    # Alert if disk usage exceeds 80%
+    webhook_url: "https://discord.com/api/webhooks/1341011025926819861/iwbomQaEk5e6Y8MBRx47ln0hFPd-TPFBj3TjIwZBJfSSpfbSqAU0nM46Z023GgJamgQy"
+
   tasks:
-    - name: Ping the server
-      ansible.builtin.ping:
-      register: ping_result
-      ignore_errors: yes  # Prevent failure on unreachable hosts
+    - name: Check Memory Usage
+      shell: free | awk '/Mem/{printf("%.0f", $3/$2*100)}'
+      register: memory_usage
+      changed_when: false
 
-    - name: Debug ping results
-      ansible.builtin.debug:
-        msg: "{{ ping_result }}"
+    - name: Check Disk Usage
+      shell: df -h / | awk 'NR==2 {print $5}' | grep -o '[0-9]*'
+      register: disk_usage
+      changed_when: false
 
-    - name: Send alert if a server is unreachable
-      ansible.builtin.uri:
-        url: "https://discord.com/api/webhooks/1341011025926819861/iwbomQaEk5e6Y8MBRx47ln0hFPd-TPFBj3TjIwZBJfSSpfbSqAU0nM46Z023GgJamgQy"
+    - name: Get CPU Load
+      shell: top -bn1 | grep "Cpu(s)" | awk '{print 100 - $8}'
+      register: cpu_usage
+      changed_when: false
+
+    - name: Get System Uptime
+      shell: uptime -p
+      register: system_uptime
+      changed_when: false
+
+    - name: Get Hostname
+      shell: hostname
+      register: system_hostname
+      changed_when: false
+
+    - name: Get Private IP Address
+      shell: hostname -I | awk '{print $1}'
+      register: system_ip
+      changed_when: false
+
+    - name: Get Public IP Address
+      shell: curl -s ifconfig.me
+      register: public_ip
+      changed_when: false
+
+    - name: Get OS Information
+      shell: "hostnamectl | grep 'Operating System' | cut -d ' ' -f3-"
+      register: os_info
+      changed_when: false
+
+    - name: Get AWS Region (if applicable)
+      shell: curl -s http://13.212.6.179/latest/meta-data/placement/region
+      register: aws_region
+      changed_when: false
+      ignore_errors: yes
+
+  #  - name: Get Azure Region (if applicable)
+  #    shell: 'curl -s -H "Metadata:true" "http://13.212.6.179/metadata/instance/compute/location?api-version=2021-01-01&format=text"'
+ #     register: azure_region
+ #     changed_when: false
+ #     ignore_errors: yes
+
+    - name: Determine Final Region
+      set_fact:
+        server_region: "{{ aws_region.stdout | default(azure_region.stdout) | default('Unknown') }}"
+
+    - name: Debug - Display System Metrics
+      debug:
+        msg: |
+          Hostname: {{ system_hostname.stdout }}
+          Private IP Address: {{ system_ip.stdout }}
+          Public IP Address: {{ public_ip.stdout }}
+          Memory Usage: {{ memory_usage.stdout }}%
+          Disk Usage: {{ disk_usage.stdout }}%
+          CPU Load: {{ cpu_usage.stdout }}%
+          Uptime: {{ system_uptime.stdout }}
+          OS: {{ os_info.stdout }}
+          Region: {{ server_region }}
+
+    - name: Send Discord Alert for High Memory Usage
+      uri:
+        url: "{{ webhook_url }}"
         method: POST
-        body_format: json
-        body: >-
+        headers:
+          Content-Type: "application/json"
+        body: >
           {
-            "username": "Server Monitor",
-            "embeds": [
-              {
-                "title": "🚨 Server Down Alert 🚨",
-                "description": "Server **{{ inventory_hostname }}** ({{ ansible_host }}) is **UNREACHABLE**! ❌",
-                "color": 15158332
-              }
-            ]
+            "content": ":warning: **Memory Alert!**\n**Hostname:** `{{ system_hostname.stdout }}`\n🔹 **Private IP:** {{ system_ip.stdout }}\n🔹 **Public IP:** {{ public_ip.stdout }}\n🔹 **Region:** {{ server_region }}\n🔹 **Memory Usage:** {{ memory_usage.stdout }}%\n🔹 **CPU Load:** {{ cpu_usage.stdout }}%\n🔹 **Disk Usage:** {{ disk_usage.stdout }}%\n🔹 **Uptime:** {{ system_uptime.stdout }}\n🔹 **OS:** {{ os_info.stdout }}"
           }
-        status_code: 204
-        validate_certs: no
-      when: ping_result.unreachable is defined and ping_result.unreachable
+        body_format: json
+        status_code: [200]
+      when: memory_usage.stdout|int > memory_threshold and memory_usage.stdout is not none and memory_usage.stdout != ""
+
+    - name: Send Discord Alert for High Disk Usage
+      uri:
+        url: "{{ webhook_url }}"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+        body: >
+          {
+            "content": ":warning: **Disk Alert!**\n**Hostname:** `{{ system_hostname.stdout }}`\n🔹 **Private IP:** {{ system_ip.stdout }}\n🔹 **Public IP:** {{ public_ip.stdout }}\n🔹 **Region:** {{ server_region }}\n🔹 **Disk Usage:** {{ disk_usage.stdout }}%\n🔹 **Memory Usage:** {{ memory_usage.stdout }}%\n🔹 **CPU Load:** {{ cpu_usage.stdout }}%\n🔹 **Uptime:** {{ system_uptime.stdout }}\n🔹 **OS:** {{ os_info.stdout }}"
+          }
+        body_format: json
+        status_code: [200]
+      when: disk_usage.stdout|int > disk_threshold and disk_usage.stdout is not none and disk_usage.stdout != ""
