@@ -27,6 +27,7 @@
         owner: ansiuser
         group: ansiuser
         mode: '0644'
+        remote_src: yes
 
     - name: Delete backup file from Docker server
       file:
