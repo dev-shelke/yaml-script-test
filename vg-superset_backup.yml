@@ -1,5 +1,5 @@
 ---
-- name: Take PostgreSQL backup from Docker server and push to GitHub
+- name: Take PostgreSQL backup from Docker server and send to Ansible server
   hosts: vg_superset
   become: true
   gather_facts: yes
@@ -20,28 +20,34 @@
         msg: "Backup command failed. {{ backup_result }}"
       when: backup_result.rc != 0
 
-    - name: Copy backup file to Ansible server
-      copy:
-        src: "/tmp/backup_{{ current_date }}.sql.xz"
-        dest: "/home/ansiuser/Backup/vg_superset_backup/backup_{{ current_date }}.sql.xz"
-        owner: ansiuser
-        group: ansiuser
-        mode: '0644'
-        remote_src: yes
+    - name: Fetch backup file to Ansible control node
+      fetch:
+        src: "/tmp/backup_{{ current_date }}.sql.xz"  # path of vg_superset server
+        dest: "/tmp/backup_{{ current_date }}.sql.xz" # path of vg_ansible server
+        flat: yes  # Avoids creating host-specific subdirectories
 
     - name: Delete backup file from Docker server
       file:
         path: "/tmp/backup_{{ current_date }}.sql.xz"
         state: absent
 
-- name: Push backup file to GitHub
+- name: Transfer backup file to Ansible server and push to GitHub
   hosts: vg_ansible
+  become: true
   gather_facts: yes
-  tasks:
 
+  tasks:
     - name: Get current date and time
       set_fact:
         current_date: "{{ ansible_date_time.iso8601 | regex_replace('T.*', '') }}"
+
+    - name: Copy backup file from Ansible control node to vg_ansible
+      copy:
+        src: "/tmp/backup_{{ current_date }}.sql.xz"
+        dest: "/home/ansiuser/Backup/vg_superset_backup/backup_{{ current_date }}.sql.xz"
+        owner: ansiuser
+        group: ansiuser
+        mode: '0644'
 
     - name: Verify that the backup file exists
       stat:
