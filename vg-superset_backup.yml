@@ -22,8 +22,8 @@
 
     - name: Fetch backup file to Ansible control node
       fetch:
-        src: "/tmp/backup_{{ current_date }}.sql.xz"  # path of vg_superset server
-        dest: "/tmp/backup_{{ current_date }}.sql.xz" # path of vg_ansible server
+        src: "/tmp/backup_{{ current_date }}.sql.xz"  # path on vg_superset server
+        dest: "/tmp/backup_{{ current_date }}.sql.xz" # path on Ansible control node
         flat: yes  # Avoids creating host-specific subdirectories
 
     - name: Delete backup file from Docker server
@@ -80,3 +80,4 @@
       command: git push origin vg_superset
       args:
         chdir: /home/ansiuser/Backup/vg_superset_backup
+      become: false  # Ensure this task runs as the normal user (not root)
