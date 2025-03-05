@@ -1,0 +1,47 @@
+---
+- name: Backup n8n Docker Volume and Push to GitHub
+  hosts: backup_server
+  become: true
+  gather_facts: yes
+
+  tasks:
+    - name: Get current timestamp
+      set_fact:
+        timestamp: "{{ ansible_date_time.iso8601 | regex_replace('[^0-9]', '') }}"
+
+    - name: Create backup folder
+      file:
+        path: "/home/ansiuser/n8n_backup/backup_{{ timestamp }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy n8n Docker volume data
+      command:
+        cmd: cp -r /var/lib/docker/volumes/n8n_data/_data /home/ansiuser/n8n_backup/backup_{{ timestamp }}
+
+    - name: Create tar archive
+      command:
+        cmd: tar -czvf /home/ansiuser/n8n_backup/backup_{{ timestamp }}/archive.tar.gz -C /home/ansiuser/n8n_backup/backup_{{ timestamp }} _data
+
+    - name: Remove uncompressed backup folder
+      file:
+        path: "/home/ansiuser/n8n_backup/backup_{{ timestamp }}/_data"
+        state: absent
+
+    - name: Add backup to Git
+      command:
+        cmd: git add .
+      args:
+        chdir: /home/ansiuser/n8n_backup/backup_{{ timestamp }}
+
+    - name: Commit backup
+      command:
+        cmd: git commit -m "backup"
+      args:
+        chdir: /home/ansiuser/n8n_backup/backup_{{ timestamp }}
+
+    - name: Push backup to GitHub
+      command:
+        cmd: git push origin n8n
+      args:
+        chdir: /home/ansiuser/n8n_backup/backup_{{ timestamp }}
