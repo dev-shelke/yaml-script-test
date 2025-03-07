@@ -4,7 +4,7 @@
   gather_facts: no
 
   vars:
-    discord_webhook: "https://discord.com/api/webhooks/1341011025926819861/iwbomQaEk5e6Y8MBRx47ln0hFPd-TPFBj3TjIwZBJfSSpfbSqAU0nM46Z023GgJamgQy"
+    discord_webhook: "https://intelliconnectq.webhook.office.com/webhookb2/de3ea671-d7d1-4732-83fa-0fa42a8eee01@bd0edc69-11ea-4701-85eb-20002872112d/IncomingWebhook/94c7d108ed8e4db1b6ef0e9dbd8c53ae/6bd0e637-7640-43ef-882a-4a24cdbad1fd"
     servers:
       - IP: "13.212.6.179"
         Name: "demo-server"
