@@ -1,0 +1,44 @@
+---
+- name: PostgreSQL Backup Playbook
+  hosts: db_servers
+  become: yes
+  vars:
+    db_name: "mydatabase"
+    db_user: "postgres"
+    backup_dir: "/var/backups/postgres"
+    retention_days: 7
+    timestamp: "{{ ansible_date_time.iso8601_basic }}"
+  
+  tasks:
+    - name: Ensure backup directory exists
+      file:
+        path: "{{ backup_dir }}"
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: "0755"
+
+    - name: Perform PostgreSQL database backup
+      command: > 
+        pg_dump -U {{ db_user }} -F c {{ db_name }} 
+        -f {{ backup_dir }}/{{ db_name }}_{{ timestamp }}.backup
+      environment:
+        PGPASSWORD: "your_password"  # Use Ansible Vault instead of plaintext passwords
+      become_user: postgres
+
+    - name: Compress backup file
+      command: gzip {{ backup_dir }}/{{ db_name }}_{{ timestamp }}.backup
+
+    - name: Delete backups older than {{ retention_days }} days
+      find:
+        path: "{{ backup_dir }}"
+        pattern: "*.backup.gz"
+        age: "{{ retention_days }}d"
+        recurse: no
+      register: old_backups
+
+    - name: Remove old backups
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      with_items: "{{ old_backups.files }}"
