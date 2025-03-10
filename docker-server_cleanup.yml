@@ -1,43 +1,61 @@
 ---
-- name: Safe Cleanup on Docker Server
+- name: Safe Docker Cleanup
   hosts: docker_servers
   become: true
   tasks:
 
-    - name: Show disk usage before cleanup
-      command: df -h
-      register: disk_before
+    - name: Show Docker disk usage before cleanup
+      command: docker system df
+      register: docker_disk_before
       changed_when: false
 
-    - name: Display disk usage before cleanup
+    - name: Display Docker disk usage before cleanup
       debug:
-        msg: "{{ disk_before.stdout_lines }}"
+        msg: "{{ docker_disk_before.stdout_lines }}"
 
-#    - name: Remove exited containers
-#     command: docker container prune -f
-#     register: container_cleanup
-#      changed_when: "'Total reclaimed space' in container_cleanup.stdout"
-
-    - name: Remove dangling images (unused images without tags)
-      command: docker image prune -f
+    # Remove dangling images (unused images without tags)
+    - name: Remove dangling images
+      command: docker rmi $(docker images --filter "dangling=true" -q)
       register: image_cleanup
-      changed_when: "'Total reclaimed space' in image_cleanup.stdout"
+      changed_when: "'Deleted' in image_cleanup.stdout"
 
-    - name: Remove unused volumes (safe cleanup)
-      command: docker volume prune -f
-      register: volume_cleanup
-      changed_when: "'Total reclaimed space' in volume_cleanup.stdout"
-
-    - name: Remove unused networks (safe cleanup)
-      command: docker network prune -f
-      register: network_cleanup
-      changed_when: "'Total reclaimed space' in network_cleanup.stdout"
-
-    - name: Show disk usage after cleanup
-      command: df -h
-      register: disk_after
+    # Remove unused volumes (safe: excludes volumes still referenced by containers)
+    - name: List unused Docker volumes
+      command: docker volume ls -qf dangling=true
+      register: unused_volumes
       changed_when: false
 
-    - name: Display disk usage after cleanup
+#    - name: Remove only unused (dangling) Docker volumes
+#      command: docker volume rm {{ item }}
+#      loop: "{{ unused_volumes.stdout_lines }}"
+#      when: unused_volumes.stdout_lines | length > 0
+#      register: volume_cleanup
+#      changed_when: volume_cleanup.stdout_lines | length > 0
+
+    # Remove unused networks (safe: only if no connected containers)
+    - name: List unused Docker networks
+      command: docker network ls --filter "dangling=true" -q
+      register: unused_networks
+      changed_when: false
+
+#    - name: Remove only completely unused Docker networks
+#      command: docker network rm {{ item }}
+#      loop: "{{ unused_networks.stdout_lines }}"
+#      when: unused_networks.stdout_lines | length > 0
+#      register: network_cleanup
+#      changed_when: network_cleanup.stdout_lines | length > 0
+
+    # Truncate logs older than 7 days (instead of deleting)
+    - name: Truncate Docker logs older than 7 days
+      command: find /var/lib/docker/containers/ -name "*.log" -type f -mtime +7 -exec truncate -s 0 {} \;
+      register: log_cleanup
+      changed_when: log_cleanup.rc == 0
+
+    - name: Show Docker disk usage after cleanup
+      command: docker system df
+      register: docker_disk_after
+      changed_when: false
+
+    - name: Display Docker disk usage after cleanup
       debug:
-        msg: "{{ disk_after.stdout_lines }}"
+        msg: "{{ docker_disk_after.stdout_lines }}"
