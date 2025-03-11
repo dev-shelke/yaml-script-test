@@ -1,0 +1,29 @@
+---
+- name: Test variable passing from Semaphore
+  hosts: localhost
+  gather_facts: no
+  become: false
+
+  vars:
+    valid_instance_ids:
+      - "i-123"
+      - "i-456"
+      - "i-789"
+      - "i-ddddddddddddddddd"
+      - "i-eeeeeeeeeeeeeeeee"
+
+  tasks:
+    - name: Validate provided instance ID
+      fail:
+        msg: "Invalid instance ID! Choose from: {{ valid_instance_ids }}"
+      when: instance_id not in valid_instance_ids
+
+    - name: Create a directory for the instance ID
+      file:
+        path: "/tmp/{{ instance_id }}"
+        state: directory
+      when: instance_id in valid_instance_ids
+
+    - name: Confirm directory creation
+      debug:
+        msg: "Directory created: /tmp/{{ instance_id }}"
