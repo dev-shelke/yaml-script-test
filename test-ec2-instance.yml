@@ -1,29 +1,28 @@
 ---
-- name: Test variable passing from Semaphore
+- name: Reboot a specific EC2 instance
   hosts: localhost
   gather_facts: no
   become: false
-
+ 
   vars:
-    valid_instance_ids:
-      - "i-123"
-      - "i-456"
-      - "i-789"
-      - "i-ddddddddddddddddd"
-      - "i-eeeeeeeeeeeeeeeee"
-
+    instance_ids:  
+      - "i-xxxxxxxxxxxxxxxxx"
+      - "i-yyyyyyyyyyyyyyyyy"
+      - "i-zzzzzzzzzzzzzzzzz"
+    aws_region: "us-east-1"
+ 
   tasks:
     - name: Validate provided instance ID
       fail:
-        msg: "Invalid instance ID! Choose from: {{ valid_instance_ids }}"
-      when: instance_id not in valid_instance_ids
-
-    - name: Create a directory for the instance ID
-      file:
-        path: "/tmp/{{ instance_id }}"
-        state: directory
-      when: instance_id in valid_instance_ids
-
-    - name: Confirm directory creation
+        msg: "Invalid instance ID provided! Choose from: {{ instance_ids }}"
+      when: instance_id not in instance_ids
+ 
+    - name: Reboot the selected EC2 instance
+      shell: aws ec2 reboot-instances --instance-ids {{ instance_id }} --region {{ aws_region }}
+      async: 1
+      poll: 0
+      ignore_errors: yes
+ 
+    - name: Show rebooted instance ID
       debug:
-        msg: "Directory created: /tmp/{{ instance_id }}"
+        msg: "Reboot command sent for instance: {{ instance_id }}"
